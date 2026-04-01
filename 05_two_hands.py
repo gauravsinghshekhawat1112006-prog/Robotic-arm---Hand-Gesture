@@ -1,0 +1,141 @@
+import cv2
+import mediapipe as mp
+import numpy as np
+
+# --- INIT ---
+mp_hands = mp.solutions.hands
+mp_draw = mp.solutions.drawing_utils
+
+hands = mp_hands.Hands(min_detection_confidence=0.8,
+                       min_tracking_confidence=0.8,
+                       max_num_hands=2)
+
+# --- STABILITY ---
+prev_status = None
+stable_count = 0
+STABLE_THRESHOLD = 5
+last_executed = None
+
+# --- COMMAND HANDLER ---
+def handle_gesture(status):
+    print(f"Action: {status}")
+
+# --- GESTURE DETECTION ---
+def detect_gesture(hand_lms, hand_label):
+    lm = hand_lms.landmark
+
+    # Finger tips & joints
+    thumb_tip, thumb_ip = lm[4], lm[3]
+    index_tip, index_pip = lm[8], lm[6]
+    middle_tip, middle_pip = lm[12], lm[10]
+    ring_tip, ring_pip = lm[16], lm[14]
+    pinky_tip, pinky_pip = lm[20], lm[18]
+
+    # Finger states
+    thumb = thumb_tip.y < thumb_ip.y
+    index = index_tip.y < index_pip.y
+    middle = middle_tip.y < middle_pip.y
+    ring = ring_tip.y < ring_pip.y
+    pinky = pinky_tip.y < pinky_pip.y
+
+    fingers = [thumb, index, middle, ring, pinky]
+    total = sum(fingers)
+
+    # Pinch
+    pinch_dist = np.linalg.norm(
+        np.array([thumb_tip.x, thumb_tip.y]) -
+        np.array([index_tip.x, index_tip.y])
+    )
+
+    # --- RIGHT HAND → θ1 ---
+    if hand_label == "Right":
+
+        # 👍
+        if thumb and not index and not middle and not ring and not pinky:
+            return "θ1 Increase"
+
+        # 👎 (thumb pointing down)
+        if not thumb and not index and not middle and not ring and not pinky:
+            return "θ1 Decrease"
+
+    # --- LEFT HAND → θ2 + GRIPPER ---
+    if hand_label == "Left":
+
+        # ☝️
+        if index and not middle and not ring and not pinky:
+            return "θ2 Increase"
+
+        # ✌️
+        if index and middle and not ring and not pinky:
+            return "θ2 Decrease"
+
+        # 🤏
+        if pinch_dist < 0.05:
+            return "Gripper Close"
+
+        # 🖐
+        if total >= 4:
+            return "Gripper Open"
+
+    return "Detecting..."
+
+# --- CAMERA ---
+cap = cv2.VideoCapture(0)
+
+while cap.isOpened():
+    success, frame = cap.read()
+    if not success:
+        break
+
+    frame = cv2.flip(frame, 1)
+    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+    results = hands.process(rgb)
+
+    status = "Detecting..."
+
+    if results.multi_hand_landmarks:
+
+        for i, hand_lms in enumerate(results.multi_hand_landmarks):
+
+            mp_draw.draw_landmarks(frame, hand_lms,
+                                   mp_hands.HAND_CONNECTIONS)
+
+            # Detect Left/Right
+            hand_label = results.multi_handedness[i].classification[0].label
+
+            current_status = detect_gesture(hand_lms, hand_label)
+
+            # --- STABILITY ---
+            if current_status == prev_status:
+                stable_count += 1
+            else:
+                stable_count = 0
+
+            prev_status = current_status
+
+            if stable_count > STABLE_THRESHOLD:
+                status = current_status
+
+                if status != last_executed:
+                    handle_gesture(status)
+                    last_executed = status
+
+            else:
+                status = "Detecting..."
+
+            # --- DISPLAY ---
+            cv2.putText(frame, f"{hand_label} Hand", (10, 30 + i*30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,255,255), 2)
+
+    # --- MAIN DISPLAY ---
+    cv2.putText(frame, f"Command: {status}", (50, 100),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
+
+    cv2.imshow("Dual Hand Robot Control", frame)
+
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+cap.release()
+cv2.destroyAllWindows()
