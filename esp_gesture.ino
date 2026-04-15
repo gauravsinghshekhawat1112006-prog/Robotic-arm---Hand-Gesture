@@ -4,7 +4,7 @@
 #include <ArduinoJson.h>
 #include <ESP32Servo.h>
 
-// --- Wi-Fi credentials ---
+
 #define WIFI_SSID     "IITR_WIFI"   
 #define EAP_IDENTITY  "esp32"          
 #define EAP_USERNAME  "25116038"          
@@ -12,25 +12,25 @@
 
 WebSocketsServer webSocket = WebSocketsServer(81);
 
-// --- Servo objects ---
+
 Servo servoBase;
 Servo servoElbow;
 Servo gripper;
 
-// --- Pins ---
+
 const int servoBasePin = 18;
 const int servoElbowPin = 19;
 const int gripperPin = 21;
-// Stepper pins 
+
 const int PUL = 13;
 const int DIR = 12;
 
 const int stepsPerRev = 3200;
 
-// 🔵 Command from OpenCV
+
 int stepperCommand = 0; // 0 = stop, 1 = CW, 2 = CCW
 
-// -------------------- STEPPER --------------------
+
 
 void stepperPosition(float angle, int dir) {
   digitalWrite(DIR, dir);
@@ -45,10 +45,10 @@ void stepperPosition(float angle, int dir) {
   }
 }
 
-// Continuous motion (gesture control)
+
 void stepperMove(int dir) {
 
-  if(dir == 0) return;  // 🔥 STOP
+  if(dir == 0) return;  
 
   if(dir == 1){
     digitalWrite(DIR, HIGH); // CW
@@ -57,7 +57,7 @@ void stepperMove(int dir) {
     digitalWrite(DIR, LOW);  // CCW
   }
 
-  delayMicroseconds(10); // 🔥 direction settle time
+  delayMicroseconds(10); 
 
   digitalWrite(PUL, HIGH);
   delayMicroseconds(800);  // speed control
@@ -65,7 +65,7 @@ void stepperMove(int dir) {
   delayMicroseconds(800);
 }
 
-// -------------------- WEBSOCKET --------------------
+
 
 void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
   if(type == WStype_TEXT) {
