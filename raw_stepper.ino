@@ -12,7 +12,7 @@ void setup() {
   Serial.println("Example: 90 1  (1=CW, 0=CCW)");
 }
 
-// 🔵 Position control
+
 void stepperPosition(float angle, int dir) {
   digitalWrite(DIR, dir);
 
@@ -24,16 +24,6 @@ void stepperPosition(float angle, int dir) {
     digitalWrite(PUL, LOW);
     delayMicroseconds(200);
   }
-}
-
-// 🔵 Continuous motion (not used here but kept)
-void stepperMove(int dir) {
-  digitalWrite(DIR, dir);
-
-  digitalWrite(PUL, HIGH);
-  delayMicroseconds(22500);
-  digitalWrite(PUL, LOW);
-  delayMicroseconds(22500);
 }
 
 void loop() {
